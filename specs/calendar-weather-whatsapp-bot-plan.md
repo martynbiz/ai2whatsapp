@@ -14,6 +14,8 @@ Carried from the PRD: single-user, two-way WhatsApp bot (via Twilio) on the user
 - Test runner: **vitest**
 - **Workflow: incremental TDD** — for each small piece of behavior, write a failing test first, implement just enough to make it pass, refactor, then move to the next piece. Milestones below are built up function-by-function this way, not implemented first and tested afterward.
 - **Deployment target**: nginx runs directly on the VPS host (apt-installed, not Dockerized) and already terminates TLS via certbot for the user's other apps, via hand-maintained vhost configs. This bot is **not** directly internet-facing: its container publishes its webhook port bound to `127.0.0.1` only, and reaching it from the public internet depends on a new nginx server block (added manually on the host, outside this repo) proxying a subdomain to that localhost port.
+- **Docker Compose from Milestone 1 onward** (not deferred to the deploy milestone) — `docker-compose.yml` exists from the first containerized milestone so the same `docker compose up` command works throughout, rather than switching from a bare `Dockerfile` later.
+- **Dev vs. production running**: development runs natively (`npm run dev`, no auxiliary services needed — this project has no database to run alongside it); production runs entirely from `docker-compose.yml` (`docker compose up -d --build`). Documented in `README.md`.
 
 ## Milestones
 
@@ -23,7 +25,7 @@ Each milestone below is built TDD-style: pick the next function/behavior it need
 
 Delivers a running, empty Express app with config loading, Docker packaging, and nothing integration-specific yet.
 
-- `package.json`, `tsconfig.json`, `env.example` (named without the leading dot — `.env.example` is blocked by a local permission deny-rule on `.env*` files), `.gitignore`, `Dockerfile`
+- `package.json`, `tsconfig.json`, `env.example` (named without the leading dot — `.env.example` is blocked by a local permission deny-rule on `.env*` files), `.gitignore`, `Dockerfile`, `docker-compose.yml` (added after Milestone 1 was first built, once the user flagged a Compose preference — see Stack above), `README.md` (intro, getting started, development vs. production running instructions)
 - `src/config.ts` — loads and validates required env vars (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER`, `TWILIO_ALLOWED_FROM`, `OPENAI_API_KEY`, `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`) — `config.test.ts` first: test that it throws on a missing required var and returns a typed config object when all are present, then implement.
 - `src/facts.ts` — static facts config (`home`, `office`, `karate`, etc.) per the PRD's facts decision — test that it loads and shapes the facts object, then implement.
 - `src/server.ts` — bare Express app, listens on a port, no routes yet
@@ -96,7 +98,7 @@ Depends on Milestones 2, 3, 4.
 Delivers the failure-handling policy and finalized container packaging.
 
 - `src/lib/retry.ts` — shared retry-with-backoff helper, used by the calendar, weather, and WhatsApp clients — test it retries N times then gives up, and succeeds immediately on a passing call, using a fake failing/succeeding function, then implement.
-- `docker-compose.yml` — defines the service, mounts `./data` for the persisted Google refresh token, and publishes the webhook port bound to `127.0.0.1:<port>` only (not `0.0.0.0`) — this container is reachable solely via the host's own nginx, never directly from the internet.
+- `docker-compose.yml` extended (already exists from Milestone 1) — adds the `./data` volume mount for the persisted Google refresh token; port binding to `127.0.0.1` only was already set up in Milestone 1.
 - `Dockerfile` finalized (build/runtime image for the app)
 - **Manual host-level step (not a file in this repo)**: add an nginx server block on the VPS proxying the bot's chosen subdomain to `127.0.0.1:<port>`, and obtain a cert for it via certbot, matching the pattern already used for the user's other apps on this VPS.
 
